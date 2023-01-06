@@ -38,7 +38,7 @@ export default async function createProduct(context, input) {
   await context.validatePermissions("reaction:legacy:products", "create", { shopId });
 
   const newProductId = (productInput && productInput._id) || Random.id();
-
+  const { user, userId } = context;
   const initialProductData = await cleanProductInput(context, {
     productId: newProductId,
     productInput,
@@ -48,13 +48,23 @@ export default async function createProduct(context, input) {
   if (initialProductData.isDeleted) {
     throw new ReactionError("invalid-param", "Creating a deleted product is not allowed");
   }
+  const previousOwners = [{
+    userId,
+    userName: user.username ?? "partOwn"
+  }]
 
+  const currentOwner = {
+    userId,
+    userName: user.username ?? "partOwn"
+  }
   const createdAt = new Date();
   const newProduct = {
     _id: newProductId,
     ancestors: [],
     createdAt,
     handle: "",
+    previousOwners,
+    currentOwner,
     isDeleted: false,
     isVisible: false,
     shopId,
