@@ -12,8 +12,8 @@ const inputSchema = new SimpleSchema({
   variant: {
     type: Object,
     blackbox: true,
-    optional: true
-  }
+    optional: true,
+  },
 });
 
 /**
@@ -33,7 +33,9 @@ export default async function createProductVariant(context, input) {
   const { productId, shopId, variant: productVariantInput } = input;
 
   // See that user has permission to create variant
-  await context.validatePermissions("reaction:legacy:products", "create", { shopId });
+  await context.validatePermissions("reaction:legacy:products", "create", {
+    shopId,
+  });
 
   // See that parent product exists
   const parentProduct = await Products.findOne({ _id: productId, shopId });
@@ -44,7 +46,10 @@ export default async function createProductVariant(context, input) {
   let product;
   let parentVariant;
   if (parentProduct.type === "variant") {
-    product = await Products.findOne({ _id: parentProduct.ancestors[0], shopId });
+    product = await Products.findOne({
+      _id: parentProduct.ancestors[0],
+      shopId,
+    });
     parentVariant = parentProduct;
   } else {
     product = parentProduct;
@@ -54,7 +59,10 @@ export default async function createProductVariant(context, input) {
   // Verify that parent is not deleted
   // Variants cannot be created on a deleted product
   if (await isAncestorDeleted(context, product, true)) {
-    throw new ReactionError("server-error", "Unable to create product variant on a deleted product");
+    throw new ReactionError(
+      "server-error",
+      "Unable to create product variant on a deleted product"
+    );
   }
 
   // get ancestors to build new ancestors array
@@ -66,15 +74,19 @@ export default async function createProductVariant(context, input) {
   }
 
   const initialProductVariantData = await cleanProductVariantInput(context, {
-    productVariantInput
+    productVariantInput,
   });
 
   if (initialProductVariantData.isDeleted) {
-    throw new ReactionError("invalid-param", "Creating a deleted product variant is not allowed");
+    throw new ReactionError(
+      "invalid-param",
+      "Creating a deleted product variant is not allowed"
+    );
   }
 
   // Generate a random ID, but only if one was not passed in
-  const newVariantId = (productVariantInput && productVariantInput._id) || Random.id();
+  const newVariantId =
+    (productVariantInput && productVariantInput._id) || Random.id();
 
   const createdAt = new Date();
   const newVariant = {
@@ -87,15 +99,17 @@ export default async function createProductVariant(context, input) {
     type: "variant",
     updatedAt: createdAt,
     workflow: {
-      status: "new"
+      status: "new",
     },
-    ...initialProductVariantData
+    ...initialProductVariantData,
   };
 
   const isOption = ancestors.length > 1;
 
   // Apply custom transformations from plugins.
-  for (const customFunc of context.getFunctionsOfType("mutateNewVariantBeforeCreate")) {
+  for (const customFunc of context.getFunctionsOfType(
+    "mutateNewVariantBeforeCreate"
+  )) {
     // Functions of type "mutateNewVariantBeforeCreate" are expected to mutate the provided variant.
     // We need to run each of these functions in a series, rather than in parallel, because
     // we are mutating the same object on each pass.
@@ -107,7 +121,9 @@ export default async function createProductVariant(context, input) {
 
   await Products.insertOne(newVariant);
 
-  Logger.debug(`createProductVariant: created variant: ${newVariantId} for ${productId}`);
+  Logger.debug(
+    `createProductVariant: created variant: ${newVariantId} for ${productId}`
+  );
 
   return newVariant;
 }

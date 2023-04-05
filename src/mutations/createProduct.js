@@ -7,13 +7,13 @@ const inputSchema = new SimpleSchema({
   product: {
     type: Object,
     blackbox: true,
-    optional: true
+    optional: true,
   },
   shopId: String,
   shouldCreateFirstVariant: {
     type: Boolean,
-    optional: true
-  }
+    optional: true,
+  },
 });
 
 /**
@@ -32,31 +32,42 @@ export default async function createProduct(context, input) {
   const { appEvents, collections, simpleSchemas } = context;
   const { Product } = simpleSchemas;
   const { Products } = collections;
-  const { product: productInput, shopId, shouldCreateFirstVariant = true } = input;
+  const {
+    product: productInput,
+    shopId,
+    shouldCreateFirstVariant = true,
+  } = input;
 
   // Check that user has permission to create product
-  await context.validatePermissions("reaction:legacy:products", "create", { shopId });
+  await context.validatePermissions("reaction:legacy:products", "create", {
+    shopId,
+  });
 
   const newProductId = (productInput && productInput._id) || Random.id();
   const { user, userId } = context;
   const initialProductData = await cleanProductInput(context, {
     productId: newProductId,
     productInput,
-    shopId
+    shopId,
   });
 
   if (initialProductData.isDeleted) {
-    throw new ReactionError("invalid-param", "Creating a deleted product is not allowed");
+    throw new ReactionError(
+      "invalid-param",
+      "Creating a deleted product is not allowed"
+    );
   }
-  const previousOwners = [{
-    userId,
-    userName: user.username ?? "partOwn"
-  }]
+  const previousOwners = [
+    {
+      userId,
+      userName: user.username ?? "partOwn",
+    },
+  ];
 
   const currentOwner = {
     userId,
-    userName: user.username ?? "partOwn"
-  }
+    userName: user.username ?? "partOwn",
+  };
   const createdAt = new Date();
   const newProduct = {
     _id: newProductId,
@@ -74,13 +85,15 @@ export default async function createProduct(context, input) {
     type: "simple",
     updatedAt: createdAt,
     workflow: {
-      status: "new"
+      status: "new",
     },
-    ...initialProductData
+    ...initialProductData,
   };
 
   // Apply custom transformations from plugins.
-  for (const customFunc of context.getFunctionsOfType("mutateNewProductBeforeCreate")) {
+  for (const customFunc of context.getFunctionsOfType(
+    "mutateNewProductBeforeCreate"
+  )) {
     // Functions of type "mutateNewProductBeforeCreate" are expected to mutate the provided variant.
     // We need to run each of these functions in a series, rather than in parallel, because
     // we are mutating the same object on each pass.
@@ -96,7 +109,7 @@ export default async function createProduct(context, input) {
   if (shouldCreateFirstVariant) {
     await context.mutations.createProductVariant(context.getInternalContext(), {
       productId: newProductId,
-      shopId
+      shopId,
     });
   }
 
